@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Cheer Me Up App</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #f0f4f8;
+      color: #2c3e50;
+      text-align: center;
+      padding: 60px 20px;
+    }
+
+    h1 {
+      color: #34495e;
+      margin-bottom: 20px;
+    }
+
+    input[type="file"] {
+      padding: 10px;
+      font-size: 16px;
+    }
+
+    button {
+      margin-top: 15px;
+      padding: 12px 25px;
+      background-color: #2ecc71;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+
+    button:hover {
+      background-color: #27ae60;
+    }
+
+    #result, #joke {
+      margin-top: 30px;
+      font-size: 18px;
+      padding: 15px;
+      max-width: 600px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    #result {
+      background-color: #eafaf1;
+      color: #2e7d32;
+      border-left: 5px solid #2ecc71;
+    }
+
+    #joke {
+      background-color: #fff8e1;
+      color: #b26a00;
+      border-left: 5px solid #f39c12;
+      margin-top: 15px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Upload Your Image</h1>
+  <input type="file" id="imageInput" />
+  <br>
+  <button onclick="uploadAndAnalyze()">Submit</button>
+
+  <div id="result"></div>
+  <div id="joke"></div>
+
+  <script src="https://sdk.amazonaws.com/js/aws-sdk-2.1480.0.min.js"></script>
+  <script>
+    const bucketName = "cheermeup-image-uploads";
+    const region = "us-east-1";
+    const identityPoolId = "us-east-1:28419197-25a1-4c7a-9892-474abaf0573d";
+    const apiUrl = "https://n2ebuq2xv5.execute-api.us-east-1.amazonaws.com/prod/analyze";
+
+    const jokes = [
+      "Why don't scientists trust atoms? Because they make up everything.",
+      "You’re not just a mood—you're a masterpiece in motion!",
+      "What do you call a bear with no teeth? A gummy bear.",
+      "What do clouds do when they get rich? They make it rain.",
+      "Your smile just increased the server’s uptime.",
+      "What do you call a happy penguin? A pen-grin.",
+      "Even your reflection is jealous of your vibe right now!",
+      "You just broke the cuteness limit. Proceed with caution!"
+    ];
+
+    AWS.config.update({
+      region: region,
+      credentials: new AWS.CognitoIdentityCredentials({
+        IdentityPoolId: identityPoolId
+      })
+    });
+
+    const s3 = new AWS.S3({ apiVersion: "2006-03-01", params: { Bucket: bucketName } });
+
+    async function uploadAndAnalyze() {
+      const file = document.getElementById("imageInput").files[0];
+      if (!file) {
+        alert("Please select an image.");
+        return;
+      }
+
+      const uploadParams = {
+        Key: file.name,
+        Body: file,
+        ContentType: file.type
+      };
+
+      try {
+        document.getElementById("result").innerText = "Uploading and analyzing...";
+        document.getElementById("joke").innerText = "";
+
+        await s3.upload(uploadParams).promise();
+        const payload = { bucket: bucketName, key: file.name };
+
+        const response = await fetch(apiUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+
+        const result = await response.json();
+        const randomJoke = jokes[Math.floor(Math.random() * jokes.length)];
+
+        document.getElementById("result").innerText = result.message || "Image analyzed!";
+        document.getElementById("joke").innerText = randomJoke;
+      } catch (err) {
+        document.getElementById("result").innerText = "Upload failed: " + err.message;
+      }
+    }
+  </script>
+</body>
+</html>
